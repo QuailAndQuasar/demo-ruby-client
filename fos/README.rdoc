@@ -1,0 +1,33 @@
+## This is not finished.  It's in development.
+## In fact, it doesn't work at the moment.
+
+= fos
+
+##### Examples
+```bash
+# Check out the commands
+$ env GLI_DEBUG=true bundle exec bin/fos --help
+
+# Enroll a member
+$ env GLI_DEBUG=true bundle exec bin/fos enroll aabacd sam@email.com
+
+# Record Points for a member
+$ env GLI_DEBUG=true bundle exec bin/fos record aabacd sam@email.com purchase 75
+
+# Redeem Points for a member
+$ env GLI_DEBUG=true bundle exec bin/fos redeem aabacd james@email.com 100
+```
+
+#### Debugging
+
+To see backtraces for CLI errors, you need only set an environment variable.
+```bash
+$ env GLI_DEBUG=true bin/gli foo
+```
+
+The same method works for other system test.
+```bash
+$ env GLI_DEBUG=true bundle exec cucumber
+```
+
+:include:fos.rdoc

@@ -1,0 +1,156 @@
+#!/usr/bin/env ruby
+require 'awesome_print'
+require 'gli'
+require 'fos'
+require 'pry'
+#   STDERR.puts "In dev, you need to use `bundle exec bin/fos` to run your app"
+
+include GLI::App
+
+program_desc 'Frontier Outdoor Supply (FOS) LoyaltyPlus CLI'
+
+version Fos::VERSION
+subcommand_option_handling :normal
+arguments :strict
+
+@members = {}
+@frp = Frp.new
+
+# Ex) enroll aabacd sam@email.com
+desc 'Enroll a Frontier Rewards member by email address and account_id'
+arg_name 'account - in LoyaltyPlus account format (aabacd) without quotes'
+arg_name 'email - in standard email format (danzig@themisfits.com)'
+# Enroll with email
+command :enroll do |c|
+  c.action do |global_options, options, args|
+    output_command_args(global_options, options, args)
+    help_now!('account_id is required.') if args[0].nil?
+    help_now!('email is required.') if args[1].nil?
+    begin
+      @member = @frp.enroll(args[1], 'aabacd')
+      @members[@member.email] = @member
+    rescue
+      raise 'Something is wrong...I dunno, let me check it out.'
+    end
+  end
+end
+
+# Ex) record aabacd sam@email.com purchase 75
+desc 'Record member purchase activity and add to the points ledger'
+arg_name 'account - in LoyaltyPlus account format (aabacd) without quotes'
+arg_name 'email - in standard email format (dale.cooper@fbi.gov)'
+arg_name 'points - integer'
+command :record do |c|
+  c.action do |global_options, options, args|
+    output_command_args(global_options, options, args)
+    help_now!('account_id is required.') if args[0].nil?
+    help_now!('email is required.') if args[1].nil?
+    @member = member_by_email(args[1])
+
+    # Here's the 'purchase'.
+    # I think this might be better implemented as a flag (-p or whatever)
+    c.command :purchase do |purchase|
+      purchase.action do |p_global_options, p_options, p_args|
+        output_command_args(p_global_options, p_options, p_args)
+        purchase_amt = p_args[1]
+        award_points(@member, purchase_amt)
+      end
+    end
+  end
+  show_point_balance(@member)
+end
+
+# redeem: award at 100 points
+# this should be a choice
+# * Unless I am not fully understanding that requirement,
+# * I'd propose that running 'redeem' itself is the product of a choice
+# that someone has made.
+# Ex) redeem aabacd james@email.com 100
+desc 'redeem points for a reward'
+long_desc %(
+When a member reaches 100 points, they are able to redeem their points for a
+reward.
+)
+arg_name 'account - in LoyaltyPlus account format (aabacd) without quotes'
+arg_name 'email - in standard email format (bob@gbv.com) without quotes.'
+command :redeem do |c|
+  c.action do |global_options, options, args|
+    output_command_args(global_options, options, args)
+    @member = member_by_email(args[1])
+    @redemption_value = member_by_email(args[2])
+    # do they have 100 points
+    if @member.points >= 100
+      @member.redeem
+    else
+      puts 'Redeeming points only works when you have 100 or more.'
+      puts 'Currently you have ' + @member.points.to_s + ' points.'
+    end
+  end
+  show_point_balance(@member)
+end
+
+# Show the balance of the member (members?) after the transaction
+def show_point_balance(member)
+  puts 'Balance: ' + member.balance.to_s
+  # format('%s %s %s' % 'aabacd', member.email, member.balance.to_s)
+  printf('aabacd %s %d',
+         member.email,
+         member.balance)
+end
+
+# Grant 1 point per dollar spent to customers enrolled in the FR program
+def award_points(member, purchase_amt)
+  member.add_points(purchase_amt)
+  printf('You spent %d dollers and thus are awarded %d points',
+         purchase_amt,
+         purchase_amt)
+end
+
+# pre do |global,command,options,args|
+#   # Pre logic here
+#   # Return true to proceed; false to abort and not call the
+#   # chosen command
+#   # Use skips_pre before a command to skip this block
+#   # on that command only
+#   true
+# end
+#
+post do |global, command, options, args|
+  output_hook_args(global, command, options, args)
+end
+
+def member_by_email(email)
+  @members[email]
+end
+
+### DEBUG UTILITTIES ####
+def output_hook_args(global, command, options, args)
+  puts '*****************'
+  puts 'global: '
+  ap global
+  puts 'command: '
+  ap command
+  puts 'options: '
+  ap options
+  puts 'args: '
+  ap args
+  puts '***** ************'
+end
+
+def output_command_args(global_options, options, args)
+  puts '*****************'
+  puts 'args: '
+  ap args
+  puts 'options: '
+  ap options
+  puts 'global_options: '
+  ap global_options
+  puts '***** ************'
+end
+
+def show_member_count
+  puts 'member count: ' + @members.count.to_s
+end
+### DEBUG UTILITTIES ####
+
+exit run(ARGV)
